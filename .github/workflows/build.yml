@@ -35,7 +35,7 @@ jobs:
 
           git clone --depth 1 https://github.com/adafruit/RTClib.git components/RTClib
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/RTClib/CMakeLists.txt
-          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES Adafruit_BusIO arduino)' >> components/RTClib/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." "src" REQUIRES Adafruit_BusIO arduino)' >> components/RTClib/CMakeLists.txt
 
           git clone --depth 1 https://github.com/PaulStoffregen/Time.git components/Time
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Time/CMakeLists.txt
