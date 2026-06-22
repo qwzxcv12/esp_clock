@@ -120,12 +120,12 @@ const char* password = "thien1991"; //--> Your wifi password.
 //----------------------------------------
 
 //----------------------------------------Defining the key.
-// The "key" works like a password. To control the "P10 RGB 32x16", users must know the âkeyâ.
+// The "key" works like a password. To control the "P10 RGB 32x16", users must know the â€œkeyâ€ .
 // You can change it to another word.
 #define key_Txt "123456789"
 //----------------------------------------
 
-// Declare the âRTC_DS3231â object as ârtcâ.
+// Declare the â€œRTC_DS3231â€  object as â€œrtcâ€ .
 RTC_DS3231 rtc;
 
 // Declaring the "Preferences" object as "preferences".
@@ -298,7 +298,7 @@ void handleSettings() {
       t_Second = incoming_Settings.toInt();
 
       char TD[40];
-      sprintf(TD, "Date : %d-%d-%d | Time : %d-%d-%d", d_Day, d_Month, d_Year, t_Hour, t_Minute, t_Second);
+      snprintf(TD, sizeof(TD), "Date : %d-%d-%d | Time : %d-%d-%d", d_Day, d_Month, d_Year, t_Hour, t_Minute, t_Second);
       
       Serial.println();
       Serial.println("Set Time and Date.");
@@ -725,7 +725,7 @@ void handleSettings() {
       delay(1000); 
       
       char send_Settings[200];
-      sprintf(send_Settings, "%d|%d|%d|%d|%d|%d|%d|%d|%s|%d|%d|%d|%d", input_Display_Mode, input_Brightness, 
+      snprintf(send_Settings, sizeof(send_Settings), "%d|%d|%d|%d|%d|%d|%d|%d|%s|%d|%d|%d|%d", input_Display_Mode, input_Brightness, 
                                                                        Color_Clock_R, Color_Clock_G, Color_Clock_B,
                                                                        Color_Date_R, Color_Date_G, Color_Date_B,
                                                                        input_Scrolling_Text,
@@ -905,8 +905,8 @@ void get_Time() {
 
   minute_Val = now.minute();
   
-  sprintf(chr_t_Hour, "%02d", now.hour());
-  sprintf(chr_t_Minute, "%02d", now.minute());
+  snprintf(chr_t_Hour, sizeof(chr_t_Hour), "%02d", now.hour());
+  snprintf(chr_t_Minute, sizeof(chr_t_Minute), "%02d", now.minute());
 }
 //________________________________________________________________________________ 
 
@@ -917,24 +917,21 @@ void get_Time() {
 
 //________________________________________________________________________________ get_Date()
 void get_Date() {
-  // Láº¥y thá»i gian tá»« RTC
+  // Láº¥y thá» i gian tá»« RTC
   DateTime now = rtc.now();
 
-  // Äá»nh dáº¡ng ngÃ y thÃ¡ng vÃ  tÃªn ngÃ y trong tuáº§n
-  sprintf(day_and_date_Text, "%s, %02d-%02d-%d", 
+  // Ä á»‹nh dáº¡ng ngÃ y thÃ¡ng vÃ  tÃªn ngÃ y trong tuáº§n
+  snprintf(day_and_date_Text, sizeof(day_and_date_Text), "%s, %02d-%02d-%d", 
           daysOfTheWeek[now.dayOfTheWeek()], // Láº¥y tÃªn ngÃ y trong tuáº§n
           now.day(),                         // Láº¥y ngÃ y
           now.month(),                       // Láº¥y thÃ¡ng
-          now.year());                       // Láº¥y nÄm
-
-  // Náº¿u báº¡n muá»n thÃªm thÃ´ng tin Ã¢m lá»ch vÃ o sau ngÃ y dÆ°Æ¡ng, báº¡n cÃ³ thá» lÃ m nhÆ° sau:
   // Chuyá»n Äá»i ngÃ y dÆ°Æ¡ng sang Ã¢m lá»ch
   double timeZone = 7.0; // MÃºi giá» Viá»t Nam
   std::array<int, 4> lunarDate = convertToLunarCalendar(now.day(), now.month(), now.year(), timeZone);
 
   // ThÃªm thÃ´ng tin Ã¢m lá»ch vÃ o biáº¿n day_and_date_Text
   char lunarText[50];
-  sprintf(lunarText, " | AL: %02d-%02d-%d", lunarDate[0], lunarDate[1], lunarDate[2]);
+  snprintf(lunarText, sizeof(lunarText), " | AL: %02d-%02d-%d", lunarDate[0], lunarDate[1], lunarDate[2]);
   
   // Ná»i thÃ´ng tin Ã¢m lá»ch vÃ o day_and_date_Text
   strcat(day_and_date_Text, lunarText);
@@ -1030,7 +1027,7 @@ void setup() {
   delay(500);
 
   char IP_Add[30];
-  sprintf(IP_Add, "IP Address : %s", WiFi.localIP().toString().c_str());
+  snprintf(IP_Add, sizeof(IP_Add), "IP Address : %s", WiFi.localIP().toString().c_str());
   start_Scroll_Text = true;
   while(true) {run_Scrolling_Text(4, 35, IP_Add, myWHITE);if (start_Scroll_Text == false) break;}
   delay(500);
