@@ -1,0 +1,57 @@
+name: Build ESP32 Firmware
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:release-v5.1
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Prepare Dependencies
+        run: |
+          mkdir -p components
+          
+          # Clone components and generate CMakeLists
+          git clone --depth 1 -b release/v3.0.x https://github.com/espressif/arduino-esp32.git components/arduino
+          
+          git clone --depth 1 https://github.com/adafruit/Adafruit-GFX-Library.git components/Adafruit-GFX-Library
+          echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Adafruit-GFX-Library/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES arduino)' >> components/Adafruit-GFX-Library/CMakeLists.txt
+
+          git clone --depth 1 https://github.com/adafruit/Adafruit_BusIO.git components/Adafruit_BusIO
+          echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Adafruit_BusIO/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES arduino)' >> components/Adafruit_BusIO/CMakeLists.txt
+
+          git clone --depth 1 https://github.com/2dom/PxMatrix.git components/PxMatrix
+          echo 'idf_component_register(INCLUDE_DIRS "." REQUIRES Adafruit-GFX-Library arduino)' > components/PxMatrix/CMakeLists.txt
+
+          git clone --depth 1 https://github.com/adafruit/RTClib.git components/RTClib
+          echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/RTClib/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES Adafruit_BusIO arduino)' >> components/RTClib/CMakeLists.txt
+
+          git clone --depth 1 https://github.com/PaulStoffregen/Time.git components/Time
+          echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Time/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES arduino)' >> components/Time/CMakeLists.txt
+
+      - name: Build Firmware
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          idf.py build
+
+      - name: Upload Firmware Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: esp32-firmware
+          path: |
+            build/bootloader/bootloader.bin
+            build/partition_table/partition-table.bin
+            build/*.bin
