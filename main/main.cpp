@@ -115,6 +115,11 @@ int Color_Date_R, Color_Date_G, Color_Date_B;
 int Color_Text_R, Color_Text_G, Color_Text_B;
 char input_Scrolling_Text[151];
 
+int Text_Color_R = 255;
+int Text_Color_G = 255;
+int Text_Color_B = 255;
+
+bool has_synced_today = false;
 //----------------------------------------Variable declaration for your network credentials.
 const char* ssid = "Ze";  //--> Your wifi name.
 const char* password = "thien1991"; //--> Your wifi password.
@@ -908,6 +913,20 @@ void get_Time() {
   
   snprintf(chr_t_Hour, sizeof(chr_t_Hour), "%02d", now.hour());
   snprintf(chr_t_Minute, sizeof(chr_t_Minute), "%02d", now.minute());
+
+  // Daily NTP Sync at 3 AM
+  if (now.hour() == 3 && !has_synced_today) {
+    if (WiFi.status() == WL_CONNECTED) {
+      configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+      struct tm timeinfo;
+      if (getLocalTime(&timeinfo, 10000)) {
+        rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+      }
+    }
+    has_synced_today = true;
+  } else if (now.hour() == 4) {
+    has_synced_today = false;
+  }
 }
 //________________________________________________________________________________ 
 
