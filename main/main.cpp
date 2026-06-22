@@ -120,6 +120,7 @@ int Text_Color_G = 255;
 int Text_Color_B = 255;
 
 bool has_synced_today = false;
+uint8_t current_brightness = 0; // Tracks actual display brightness to avoid redundant calls
 //----------------------------------------Variable declaration for your network credentials.
 const char* ssid = "Ze";  //--> Your wifi name.
 const char* password = "thien1991"; //--> Your wifi password.
@@ -275,15 +276,10 @@ void prepare_and_start_The_Server() {
 void handleRoot() {
   server.send(200, "text/html", MAIN_page); //--> Send web page.
 }
-//________________________________________________________________________________
-
-
-
-
-
-
 //________________________________________________________________________________ handleSettings().
 // Subroutines for handling handle settings from clients.
+// OPTIMIZED: Removed display interrupt toggling and unnecessary delays.
+// NVS (Preferences) is thread-safe and does not require disabling the display.
 void handleSettings() {
   String incoming_Settings;
   
@@ -323,48 +319,26 @@ void handleSettings() {
 
       Serial.println("Set Time and Date...");
       rtc.adjust(DateTime(d_Year, d_Month, d_Day, t_Hour, t_Minute, t_Second));
-      delay(100);
       Serial.println("Setting the Time and Date has been completed.");
     }
 
     // Conditions for setting Display Mode.
     if (incoming_Settings == "setDisplayMode") {
       incoming_Settings = server.arg("input_Display_Mode");
-      input_Display_Mode = incoming_Settings.toInt();
+      byte new_Display_Mode = incoming_Settings.toInt();
       
       Serial.println();
       Serial.println("Set Display Mode.");
       Serial.print("Display Mode : ");
-      Serial.println(input_Display_Mode);
+      Serial.println(new_Display_Mode);
 
-      Serial.println("Set and save Display Mode....");
-
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
-      //::::::::::::::::::
-      // Open Preferences.
-      preferences.begin("mySettings", false);
-      delay(500);
-
-      // Save "input_Display_Mode" to flash memory with key name "input_DM".
-      preferences.putInt("input_DM", input_Display_Mode);
-      delay(100);
-
-      // Gets the value of "input_Display_Mode" stored in flash memory.
-      // If the key name "input_DM" is not found, then "input_Display_Mode" is 1 or "input_Display_Mode = 1".
-      input_Display_Mode = preferences.getInt("input_DM", 1);
-      delay(100);
-
-      // Close the Preferences.
-      preferences.end();
-      delay(500);
-      //::::::::::::::::::
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000);
+      // Check-before-write: Only write to Flash if value changed
+      if (new_Display_Mode != input_Display_Mode) {
+        input_Display_Mode = new_Display_Mode;
+        preferences.begin("mySettings", false);
+        preferences.putInt("input_DM", input_Display_Mode);
+        preferences.end();
+      }
 
       if (input_Display_Mode == 1) {
         clock_Color = display.color565(Color_Clock_R, Color_Clock_G, Color_Clock_B);
@@ -373,11 +347,7 @@ void handleSettings() {
       }
 
       display.clearDisplay();
-
       reset_Scrolling_Text = true;
-
-      // After the scrolling text display is reset, 
-      // set "scrolling_text_Display_Order = 0" so that the scrolling text display starts from scrolling the name of the day and date.
       scrolling_text_Display_Order = 0;
       
       Serial.println("Set and save Display Mode is complete.");
@@ -389,41 +359,19 @@ void handleSettings() {
       int temp_Bright = incoming_Settings.toInt();
       if (temp_Bright > 255) temp_Bright = 255;
       if (temp_Bright < 0)   temp_Bright = 0;
-      input_Brightness = temp_Bright;
       
       Serial.println();
       Serial.println("Set Brightness.");
       Serial.print("Brightness : ");
-      Serial.println(input_Brightness);
+      Serial.println(temp_Bright);
 
-      Serial.println("Set and save Brightness....");
-
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
-      //::::::::::::::::::
-      // Open Preferences.
-      preferences.begin("mySettings", false);
-      delay(500);
-
-      // Save "input_Brightness" to flash memory with key name "input_BRT".
-      preferences.putInt("input_BRT", input_Brightness);
-      delay(100);
-
-      // Gets the value of "input_Brightness" stored in flash memory.
-      // If the key name "input_BRT" is not found, then "input_Brightness" is 125 or "input_Brightness = 125".
-      input_Brightness = preferences.getInt("input_BRT", 125);
-      delay(100);
-
-      // Close the Preferences.
-      preferences.end();
-      delay(500);
-      //::::::::::::::::::
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000);
+      // Check-before-write: Only write to Flash if value changed
+      if ((byte)temp_Bright != input_Brightness) {
+        input_Brightness = temp_Bright;
+        preferences.begin("mySettings", false);
+        preferences.putInt("input_BRT", input_Brightness);
+        preferences.end();
+      }
 
       display.setBrightness(input_Brightness);
       
@@ -432,64 +380,32 @@ void handleSettings() {
 
     // Conditions for setting Clock Color.
     if (incoming_Settings == "setColorClock") {
-      // Conditions for checking display mode.
-      // Setting the clock color can only be done in display mode = 1.
       if (input_Display_Mode == 2) {
-        server.send(200, "text/plane", "+ERR_DM"); //--> Sending replies to the client.
-        delay(500);
+        server.send(200, "text/plane", "+ERR_DM");
         Serial.println("-------------");
         return;
       }
       
-      incoming_Settings = server.arg("Color_Clock_R");
-      Color_Clock_R = incoming_Settings.toInt();
-      incoming_Settings = server.arg("Color_Clock_G");
-      Color_Clock_G = incoming_Settings.toInt();
-      incoming_Settings = server.arg("Color_Clock_B");
-      Color_Clock_B = incoming_Settings.toInt();
+      int new_R = server.arg("Color_Clock_R").toInt();
+      int new_G = server.arg("Color_Clock_G").toInt();
+      int new_B = server.arg("Color_Clock_B").toInt();
       
       Serial.println();
       Serial.println("Set Clock Color.");
       Serial.print("Clock Color (RGB) : ");
-      Serial.print(Color_Clock_R);Serial.print(",");Serial.print(Color_Clock_G);Serial.print(",");Serial.println(Color_Clock_B);
+      Serial.print(new_R);Serial.print(",");Serial.print(new_G);Serial.print(",");Serial.println(new_B);
 
-      Serial.println("Set and save Clock Color....");
-
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
-      //::::::::::::::::::
-      // Open Preferences.
-      preferences.begin("mySettings", false);
-      delay(500);
-
-      // Saves "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" to flash memory with key names "CC_R", "CC_G" and "CC_B".
-      preferences.putInt("CC_R", Color_Clock_R);
-      delay(100);
-      preferences.putInt("CC_G", Color_Clock_G);
-      delay(100);
-      preferences.putInt("CC_B", Color_Clock_B);
-      delay(100);
-
-      // Gets the values â€‹â€‹of "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" stored in flash memory.
-      // If the key names "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" are not found,
-      // then "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" have a value of 255.
-      Color_Clock_R = preferences.getInt("CC_R", 255);
-      delay(100);
-      Color_Clock_G = preferences.getInt("CC_G", 255);
-      delay(100);
-      Color_Clock_B = preferences.getInt("CC_B", 255);
-      delay(100);
-
-      // Close the Preferences.
-      preferences.end();
-      delay(500);
-      //::::::::::::::::::
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000);
+      // Check-before-write: Only write to Flash if any value changed
+      if (new_R != Color_Clock_R || new_G != Color_Clock_G || new_B != Color_Clock_B) {
+        Color_Clock_R = new_R;
+        Color_Clock_G = new_G;
+        Color_Clock_B = new_B;
+        preferences.begin("mySettings", false);
+        preferences.putInt("CC_R", Color_Clock_R);
+        preferences.putInt("CC_G", Color_Clock_G);
+        preferences.putInt("CC_B", Color_Clock_B);
+        preferences.end();
+      }
 
       clock_Color = display.color565(Color_Clock_R, Color_Clock_G, Color_Clock_B);
       
@@ -498,68 +414,36 @@ void handleSettings() {
 
     // Conditions for setting Date Color.
     if (incoming_Settings == "setColorDate") {
-      // Conditions for checking display mode.
-      // Setting the date color can only be done in display mode = 1.
       if (input_Display_Mode == 2) {
-        server.send(200, "text/plane", "+ERR_DM"); //--> Sending replies to the client.
-        delay(500);
+        server.send(200, "text/plane", "+ERR_DM");
         Serial.println("-------------");
         return;
       }
-      incoming_Settings = server.arg("Color_Date_R");
-      Color_Date_R = incoming_Settings.toInt();
-      incoming_Settings = server.arg("Color_Date_G");
-      Color_Date_G = incoming_Settings.toInt();
-      incoming_Settings = server.arg("Color_Date_B");
-      Color_Date_B = incoming_Settings.toInt();
+
+      int new_R = server.arg("Color_Date_R").toInt();
+      int new_G = server.arg("Color_Date_G").toInt();
+      int new_B = server.arg("Color_Date_B").toInt();
       
       Serial.println();
       Serial.println("Set Date Color.");
       Serial.print("Date Color (RGB) : ");
-      Serial.print(Color_Date_R);Serial.print(",");Serial.print(Color_Date_G);Serial.print(",");Serial.println(Color_Date_B);
+      Serial.print(new_R);Serial.print(",");Serial.print(new_G);Serial.print(",");Serial.println(new_B);
 
-      Serial.println("Set and save Date Color....");
-
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
-      //::::::::::::::::::
-      // Open Preferences.
-      preferences.begin("mySettings", false);
-      delay(500);
-
-      preferences.putInt("DC_R", Color_Date_R);
-      delay(100);
-      preferences.putInt("DC_G", Color_Date_G);
-      delay(100);
-      preferences.putInt("DC_B", Color_Date_B);
-      delay(100);
-
-      Color_Date_R = preferences.getInt("DC_R", 255);
-      delay(100);
-      Color_Date_G = preferences.getInt("DC_G", 255);
-      delay(100);
-      Color_Date_B = preferences.getInt("DC_B", 255);
-      delay(100);
-
-      // Close the Preferences.
-      preferences.end();
-      delay(500);
-      //::::::::::::::::::
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000);
+      // Check-before-write
+      if (new_R != Color_Date_R || new_G != Color_Date_G || new_B != Color_Date_B) {
+        Color_Date_R = new_R;
+        Color_Date_G = new_G;
+        Color_Date_B = new_B;
+        preferences.begin("mySettings", false);
+        preferences.putInt("DC_R", Color_Date_R);
+        preferences.putInt("DC_G", Color_Date_G);
+        preferences.putInt("DC_B", Color_Date_B);
+        preferences.end();
+      }
 
       display.clearDisplay();
-      
       reset_Scrolling_Text = true;
-
-      // After the scrolling text display is reset, 
-      // set "scrolling_text_Display_Order = 0" so that the scrolling text display starts from scrolling the name of the day and date.
       scrolling_text_Display_Order = 0;
-      
       day_and_date_Text_Color = display.color565(Color_Date_R, Color_Date_G, Color_Date_B);
       
       Serial.println("Set and save Date Color is complete.");
@@ -568,49 +452,19 @@ void handleSettings() {
     // Conditions for setting text on Scrolling Text.
     if (incoming_Settings == "setScrollingText") {
       incoming_Settings = server.arg("input_Scrolling_Text");
-      String my_Scrolling_Text = incoming_Settings;
-      int my_Scrolling_Text_Length = my_Scrolling_Text.length() + 1;
-      my_Scrolling_Text.toCharArray(input_Scrolling_Text, my_Scrolling_Text_Length);
+      incoming_Settings.toCharArray(input_Scrolling_Text, incoming_Settings.length() + 1);
       
       Serial.println();
       Serial.println("Set Scrolling Text.");
       Serial.print("Text : ");
       Serial.println(input_Scrolling_Text);
 
-      Serial.println("Set and save Scrolling Text....");
-
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
-      //::::::::::::::::::
-      // Open Preferences.
       preferences.begin("mySettings", false);
-      delay(500);
-
       preferences.putString("input_ST", input_Scrolling_Text);
-      delay(100);
-
-      my_Scrolling_Text = preferences.getString("input_ST", "");
-      my_Scrolling_Text_Length = my_Scrolling_Text.length() + 1;
-      my_Scrolling_Text.toCharArray(input_Scrolling_Text, my_Scrolling_Text_Length);
-      delay(100);
-
-      // Close the Preferences.
       preferences.end();
-      delay(500);
-      //::::::::::::::::::
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000);
 
       display.clearDisplay();
-      
       reset_Scrolling_Text = true;
-
-      // Once the scrolling text display is reset,
-      // set "scrolling_text_Display_Order = 1" so that the scrolling text display starts from scrolling "input_Scrolling_Text".
       scrolling_text_Display_Order = 1;
       
       Serial.println("Set and save Scrolling Text is complete.");
@@ -618,69 +472,36 @@ void handleSettings() {
 
     // Conditions for setting Text Color.
     if (incoming_Settings == "setTextColor") {
-      // Conditions for checking display mode.
-      // Setting the text color can only be done in display mode = 1.
       if (input_Display_Mode == 2) {
-        server.send(200, "text/plane", "+ERR_DM"); //--> Sending replies to the client.
-        delay(500);
+        server.send(200, "text/plane", "+ERR_DM");
         Serial.println("-------------");
         return;
       }
       
-      incoming_Settings = server.arg("Color_Text_R");
-      Color_Text_R = incoming_Settings.toInt();
-      incoming_Settings = server.arg("Color_Text_G");
-      Color_Text_G = incoming_Settings.toInt();
-      incoming_Settings = server.arg("Color_Text_B");
-      Color_Text_B = incoming_Settings.toInt();
+      int new_R = server.arg("Color_Text_R").toInt();
+      int new_G = server.arg("Color_Text_G").toInt();
+      int new_B = server.arg("Color_Text_B").toInt();
       
       Serial.println();
       Serial.println("Set Text Color.");
       Serial.print("Text Color (RGB) : ");
-      Serial.print(Color_Text_R);Serial.print(",");Serial.print(Color_Text_G);Serial.print(",");Serial.println(Color_Text_B);
+      Serial.print(new_R);Serial.print(",");Serial.print(new_G);Serial.print(",");Serial.println(new_B);
 
-      Serial.println("Set and save Text Color....");
-
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
-      //::::::::::::::::::
-      // Open Preferences.
-      preferences.begin("mySettings", false);
-      delay(500);
-
-      preferences.putInt("TC_R", Color_Text_R);
-      delay(100);
-      preferences.putInt("TC_G", Color_Text_G);
-      delay(100);
-      preferences.putInt("TC_B", Color_Text_B);
-      delay(100);
-
-      Color_Text_R = preferences.getInt("TC_R", 255);
-      delay(100);
-      Color_Text_G = preferences.getInt("TC_G", 255);
-      delay(100);
-      Color_Text_B = preferences.getInt("TC_B", 255);
-      delay(100);
-
-      // Close the Preferences.
-      preferences.end();
-      delay(500);
-      //::::::::::::::::::
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000);
+      // Check-before-write
+      if (new_R != Color_Text_R || new_G != Color_Text_G || new_B != Color_Text_B) {
+        Color_Text_R = new_R;
+        Color_Text_G = new_G;
+        Color_Text_B = new_B;
+        preferences.begin("mySettings", false);
+        preferences.putInt("TC_R", Color_Text_R);
+        preferences.putInt("TC_G", Color_Text_G);
+        preferences.putInt("TC_B", Color_Text_B);
+        preferences.end();
+      }
 
       display.clearDisplay();
-
       reset_Scrolling_Text = true;
-
-      // Once the scrolling text display is reset,
-      // set "scrolling_text_Display_Order = 1" so that the scrolling text display starts from scrolling "input_Scrolling_Text".
       scrolling_text_Display_Order = 1;
-
       text_Color = display.color565(Color_Text_R, Color_Text_G, Color_Text_B);
       
       Serial.println("Set and save Text Color is complete.");
@@ -689,38 +510,20 @@ void handleSettings() {
     // Conditions for setting Scrolling Speed.
     if (incoming_Settings == "setScrollingSpeed") {
       incoming_Settings = server.arg("input_Scrolling_Speed");
-      input_Scrolling_Speed = incoming_Settings.toInt();
+      byte new_Speed = incoming_Settings.toInt();
       
       Serial.println();
       Serial.println("Set Scrolling Speed.");
       Serial.print("Scrolling Speed : ");
-      Serial.println(input_Scrolling_Speed);
+      Serial.println(new_Speed);
 
-      Serial.println("Set and save Scrolling Speed....");
-
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
-      //::::::::::::::::::
-      // Open Preferences.
-      preferences.begin("mySettings", false);
-      delay(500);
-
-      preferences.putInt("input_SS", input_Scrolling_Speed);
-      delay(100);
-
-      input_Scrolling_Speed = preferences.getInt("input_SS", 35);
-      delay(100);
-
-      // Close the Preferences.
-      preferences.end();
-      delay(500);
-      //::::::::::::::::::
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000); 
+      // Check-before-write
+      if (new_Speed != input_Scrolling_Speed) {
+        input_Scrolling_Speed = new_Speed;
+        preferences.begin("mySettings", false);
+        preferences.putInt("input_SS", input_Scrolling_Speed);
+        preferences.end();
+      }
       
       Serial.println("Set and save Scrolling Speed is complete.");
     }
@@ -730,15 +533,7 @@ void handleSettings() {
       Serial.println();
       Serial.println("Get Settings.");
 
-      // Disable Timer Interrupts.
-      display_update_enable(false);
-      delay(1000);
-
       get_All_Saved_Settings();
-
-      // Enable Timer Interrupts.
-      display_update_enable(true);
-      delay(1000); 
       
       char send_Settings[200];
       snprintf(send_Settings, sizeof(send_Settings), "%d|%d|%d|%d|%d|%d|%d|%d|%s|%d|%d|%d|%d", input_Display_Mode, input_Brightness, 
@@ -751,21 +546,18 @@ void handleSettings() {
       Serial.print("Settings Data :");
       Serial.println(send_Settings);
 
-      server.send(200, "text/plane", send_Settings);  //--> Sending replies to the client.
-      delay(500);
+      server.send(200, "text/plane", send_Settings);
     }
     Serial.println("-------------");
 
-    server.send(200, "text/plane", "+OK"); //--> Sending replies to the client.
-    delay(500);
+    server.send(200, "text/plane", "+OK");
   } else {
     Serial.println();
     Serial.println("Wrong Key Text !");
     Serial.println("Please enter the correct Key Text.");
     Serial.println("-------------");
     
-    server.send(200, "text/plane", "+ERR"); //--> Sending replies to the client.
-    delay(500);
+    server.send(200, "text/plane", "+ERR");
   }
 }
 //________________________________________________________________________________
@@ -777,9 +569,8 @@ void handleSettings() {
 
 //________________________________________________________________________________ get_All_Saved_Settings()
 void get_All_Saved_Settings() {
-  // Open Preferences.
-  preferences.begin("mySettings", false);
-  delay(500);
+  // Open Preferences (read-only mode).
+  preferences.begin("mySettings", true);
 
   input_Display_Mode = preferences.getInt("input_DM", 1);
   input_Brightness = preferences.getInt("input_BRT", 125);
@@ -802,7 +593,6 @@ void get_All_Saved_Settings() {
 
   // Close the Preferences.
   preferences.end();
-  delay(500);
 
   Serial.println("-------------");
   Serial.println("All Saved Settings.");
@@ -925,10 +715,11 @@ void get_Time() {
   snprintf(chr_t_Minute, sizeof(chr_t_Minute), "%02d", now.minute());
 
   // Smart Auto-Brightness (Dimming at night 22:00 -> 06:00)
-  if (now.hour() >= 22 || now.hour() < 6) {
-    display.setBrightness(15); // Very dim at night
-  } else {
-    display.setBrightness(input_Brightness); // User configured brightness during the day
+  // Only update brightness when value actually changes to prevent micro-flickers
+  uint8_t target_brightness = (now.hour() >= 22 || now.hour() < 6) ? 15 : input_Brightness;
+  if (target_brightness != current_brightness) {
+    current_brightness = target_brightness;
+    display.setBrightness(current_brightness);
   }
 
   // Daily NTP Sync at 3 AM
