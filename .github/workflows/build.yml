@@ -32,7 +32,7 @@ jobs:
 
           git clone --depth 1 https://github.com/2dom/PxMatrix.git components/PxMatrix
           echo 'idf_component_register(INCLUDE_DIRS . REQUIRES Adafruit-GFX-Library arduino)' > components/PxMatrix/CMakeLists.txt
-          echo 'target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=maybe-uninitialized)' >> components/PxMatrix/CMakeLists.txt
+          echo 'target_compile_options(${COMPONENT_LIB} INTERFACE -Wno-error=maybe-uninitialized)' >> components/PxMatrix/CMakeLists.txt
 
           git clone --depth 1 https://github.com/adafruit/RTClib.git components/RTClib
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/RTClib/CMakeLists.txt
