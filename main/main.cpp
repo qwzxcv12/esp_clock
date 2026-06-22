@@ -925,6 +925,7 @@ void get_Date() {
           daysOfTheWeek[now.dayOfTheWeek()], // Láº¥y tÃªn ngÃ y trong tuáº§n
           now.day(),                         // Láº¥y ngÃ y
           now.month(),                       // Láº¥y thÃ¡ng
+          now.year());                       // Láº¥y nÄƒm
   // Chuyá»n Äá»i ngÃ y dÆ°Æ¡ng sang Ã¢m lá»ch
   double timeZone = 7.0; // MÃºi giá» Viá»t Nam
   std::array<int, 4> lunarDate = convertToLunarCalendar(now.day(), now.month(), now.year(), timeZone);
