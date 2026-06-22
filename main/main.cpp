@@ -19,6 +19,7 @@
 #include "PageIndex.h"
 #include "am-duong-lich.h"
 #include <TimeLib.h>
+#include <time.h>
 //----------------------------------------
 // Forward declarations
 void handleRoot();
@@ -1032,6 +1033,24 @@ void setup() {
   start_Scroll_Text = true;
   while(true) {run_Scrolling_Text(4, 35, IP_Add, myWHITE); delay(1); if (start_Scroll_Text == false) break;}
   delay(500);
+
+  //----------------------------------------NTP Time Sync
+  start_Scroll_Text = true;
+  while(true) {run_Scrolling_Text(4, 35, "Syncing time via NTP...", myYELLOW); delay(1); if (start_Scroll_Text == false) break;}
+
+  configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // UTC+7 for Vietnam
+  
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo, 10000)) { // Wait up to 10 seconds for time sync
+    rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+    start_Scroll_Text = true;
+    while(true) {run_Scrolling_Text(4, 35, "NTP Sync Success!", myGREEN); delay(1); if (start_Scroll_Text == false) break;}
+  } else {
+    start_Scroll_Text = true;
+    while(true) {run_Scrolling_Text(4, 35, "NTP Sync Failed!", myRED); delay(1); if (start_Scroll_Text == false) break;}
+  }
+  delay(500);
+  //----------------------------------------
 }
 //________________________________________________________________________________ 
 
