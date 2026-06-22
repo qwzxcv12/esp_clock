@@ -149,8 +149,6 @@ void IRAM_ATTR display_updater(){
 }
 //________________________________________________________________________________ 
 
-}
-
 void display_update_enable(bool is_enable) {
   if (is_enable) {
     timer = timerBegin(0, 80, true);
