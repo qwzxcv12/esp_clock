@@ -20,6 +20,17 @@
 #include "am-duong-lich.h"
 #include <TimeLib.h>
 //----------------------------------------
+// Forward declarations
+void handleRoot();
+void handleSettings();
+void get_All_Saved_Settings();
+uint16_t getTextWidth(const char* text);
+void run_Scrolling_Text(uint8_t speed, byte y_pos, const char* st_Text, uint16_t color);
+void display_Data();
+void handleNotFound();
+void show_Text_Center(const char* text);
+void wifi_Connect();
+void time_Update();
 
 //----------------------------------------Pins for LED MATRIX.
 #define P_LAT 5
@@ -138,23 +149,16 @@ void IRAM_ATTR display_updater(){
 }
 //________________________________________________________________________________ 
 
+}
 
-
-
-
-
-//________________________________________________________________________________ display_update_enable()
-// Subroutine to enable and disable interrupt timers.
 void display_update_enable(bool is_enable) {
-  if (is_enable){
-    timer = timerBegin(0, 80, true);
-    timerAttachInterrupt(timer, &display_updater, true);
-    timerAlarmWrite(timer, 1500, true);
-    timerAlarmEnable(timer);
-  }
-  else{
+  if (is_enable) {
+    timer = timerBegin(1000000); // 1MHz frequency
+    timerAttachInterrupt(timer, &display_updater);
+    timerAlarm(timer, 4000, true, 0); // 4000 ticks = 4ms
+  } else {
     timerDetachInterrupt(timer);
-    timerAlarmDisable(timer);
+    timerEnd(timer);
   }
 }
 //________________________________________________________________________________ 
@@ -367,10 +371,10 @@ void handleSettings() {
     // Conditions for setting Brightness.
     if (incoming_Settings == "setBrightness") {
       incoming_Settings = server.arg("input_Brightness");
-      input_Brightness = incoming_Settings.toInt();
-
-      if (input_Brightness > 255) input_Brightness = 255;
-      if (input_Brightness < 0)   input_Brightness = 0;
+      int temp_Bright = incoming_Settings.toInt();
+      if (temp_Bright > 255) temp_Bright = 255;
+      if (temp_Bright < 0)   temp_Bright = 0;
+      input_Brightness = temp_Bright;
       
       Serial.println();
       Serial.println("Set Brightness.");
@@ -453,7 +457,7 @@ void handleSettings() {
       preferences.putInt("CC_B", Color_Clock_B);
       delay(100);
 
-      // Gets the values ââof "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" stored in flash memory.
+      // Gets the values â€‹â€‹of "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" stored in flash memory.
       // If the key names "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" are not found,
       // then "Color_Clock_R", "Color_Clock_G" and "Color_Clock_B" have a value of 255.
       Color_Clock_R = preferences.getInt("CC_R", 255);
@@ -812,7 +816,7 @@ void get_All_Saved_Settings() {
 
 //________________________________________________________________________________ run_Scrolling_Text()
 // Subroutine for scrolling text.
-void run_Scrolling_Text(uint8_t st_Y_Pos, byte st_Speed, char * st_Text, uint16_t st_Color) {
+void run_Scrolling_Text(uint8_t speed, byte y_pos, const char* st_Text, uint16_t color) {
   if (start_Scroll_Text == true && set_up_Scrolling_Text_Length == true) {
     if (strlen(st_Text) > 0) {
       text_Length_In_Pixel = getTextWidth(st_Text);
@@ -1028,7 +1032,7 @@ void setup() {
   delay(500);
 
   char IP_Add[30];
-  sprintf(IP_Add, "IP Address : %s", WiFi.localIP().toString());
+  sprintf(IP_Add, "IP Address : %s", WiFi.localIP().toString().c_str());
   start_Scroll_Text = true;
   while(true) {run_Scrolling_Text(4, 35, IP_Add, myWHITE);if (start_Scroll_Text == false) break;}
   delay(500);
