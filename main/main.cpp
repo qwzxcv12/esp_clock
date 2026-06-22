@@ -848,10 +848,10 @@ void setup() {
   // Fast boot: show status on both lines simultaneously
   display.setTextColor(myCYAN);
   display.setCursor(0, 0);
-  display.print("BOOT...");
+  display.print("WIFI:...");
   display.setTextColor(myYELLOW);
-  display.setCursor(0, 9);
-  display.print("WiFi...");
+  display.setCursor(0, 8);
+  display.print("NTP: ...");
   delay(500);
 
   // IMPORTANT: Must disable display timer ISR during WiFi init
@@ -865,31 +865,14 @@ void setup() {
   // Re-enable display after WiFi is ready
   display_update_enable(true);
 
-  // Scroll IP Address on startup to display it fully
+  // Update screen: WiFi connected, NTP pending
   display.clearDisplay();
   display.setTextColor(myGREEN);
   display.setCursor(0, 0);
-  display.print("WiFi OK");
-  
-  String ip_str = WiFi.localIP().toString();
-  const char* ip_text = ip_str.c_str();
-  int text_w = getTextWidth(ip_text);
-  
-  // Scroll IP on the second line (y=8)
-  for (int x = matrix_width; x >= -text_w; x--) {
-    display.fillRect(0, 8, matrix_width, 8, myBLACK);
-    display.setTextColor(myWHITE);
-    display.setCursor(x, 8);
-    display.print(ip_text);
-    delay(40); // 40ms scroll delay
-  }
-  delay(500);
-
-  //----------------------------------------NTP Time Sync
-  display.clearDisplay();
+  display.print("WIFI: OK");
   display.setTextColor(myYELLOW);
-  display.setCursor(0, 0);
-  display.print("NTP...");
+  display.setCursor(0, 8);
+  display.print("NTP: ...");
 
   // Set the callback for background NTP syncs
   sntp_set_time_sync_notification_cb(timeSyncCallback);
@@ -901,17 +884,54 @@ void setup() {
   configTime(7 * 3600, 0, "time.google.com", "vn.pool.ntp.org", "pool.ntp.org");
   
   struct tm timeinfo;
+  bool ntp_ok = false;
   if (getLocalTime(&timeinfo, 5000)) { // Wait up to 5 seconds for time sync on boot
     rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+    ntp_ok = true;
+    display.fillRect(0, 8, matrix_width, 8, myBLACK);
     display.setTextColor(myGREEN);
-    display.setCursor(0, 9);
-    display.print("NTP OK!");
+    display.setCursor(0, 8);
+    display.print("NTP: OK");
   } else {
+    display.fillRect(0, 8, matrix_width, 8, myBLACK);
     display.setTextColor(myRED);
-    display.setCursor(0, 9);
-    display.print("NTP ERR");
+    display.setCursor(0, 8);
+    display.print("NTP: ERR");
   }
-  delay(1000);
+  delay(1200); // Show status screen for 1.2s
+
+  // Format scrolling texts for professional boot display
+  char line1_text[60];
+  snprintf(line1_text, sizeof(line1_text), "WiFi OK | IP: %s", WiFi.localIP().toString().c_str());
+
+  char line2_text[80];
+  if (ntp_ok) {
+    snprintf(line2_text, sizeof(line2_text), "NTP OK | Time: %02d-%02d-%d %02d:%02d", 
+             timeinfo.tm_mday, timeinfo.tm_mon + 1, timeinfo.tm_year + 1900,
+             timeinfo.tm_hour, timeinfo.tm_min);
+  } else {
+    DateTime now = rtc.now();
+    snprintf(line2_text, sizeof(line2_text), "NTP ERR | RTC: %02d-%02d-%d %02d:%02d", 
+             now.day(), now.month(), now.year(), now.hour(), now.minute());
+  }
+
+  int w1 = getTextWidth(line1_text);
+  int w2 = getTextWidth(line2_text);
+  int max_w = max(w1, w2);
+
+  // Scroll both lines simultaneously
+  for (int x = matrix_width; x >= -max_w; x--) {
+    display.clearDisplay();
+    display.setTextColor(myCYAN);
+    display.setCursor(x, 0);
+    display.print(line1_text);
+
+    display.setTextColor(myYELLOW);
+    display.setCursor(x, 8);
+    display.print(line2_text);
+    delay(40); // 40ms scroll speed
+  }
+  delay(500);
   display.clearDisplay();
 
   // Start FreeRTOS Web Server Task on Core 0
