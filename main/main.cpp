@@ -97,9 +97,9 @@ const long interval_Show_Clock = 500;
 
 // Variables to hold date and time data.
 char daysOfTheWeek[7][10] = {"CHU NHAT", "THU 2", "THU 3", "THU 4", "THU 5", "THU 6", "THU 7"};
-char chr_t_Minute[3];
+char chr_t_Minute[4];
 byte minute_Val, last_minute_Val;
-char chr_t_Hour[3];
+char chr_t_Hour[4];
 char day_and_date_Text[100];
 bool blink_Colon = false;
 uint16_t clock_Color;
