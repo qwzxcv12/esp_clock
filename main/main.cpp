@@ -1002,11 +1002,11 @@ void setup() {
   delay(100);
 
   start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, "Connecting to WiFi.", myBLUE);if (start_Scroll_Text == false) break;}
+  while(true) {run_Scrolling_Text(4, 35, "Connecting to WiFi.", myBLUE); delay(1); if (start_Scroll_Text == false) break;}
   delay(500);
 
   start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, "Please Wait...", myRED);if (start_Scroll_Text == false) break;}
+  while(true) {run_Scrolling_Text(4, 35, "Please Wait...", myRED); delay(1); if (start_Scroll_Text == false) break;}
   delay(500);
 
   // Disable Timer Interrupts.
@@ -1024,13 +1024,13 @@ void setup() {
   delay(1000);
 
   start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, "Successfully connected to WiFi.", myGREEN);if (start_Scroll_Text == false) break;}
+  while(true) {run_Scrolling_Text(4, 35, "Successfully connected to WiFi.", myGREEN); delay(1); if (start_Scroll_Text == false) break;}
   delay(500);
 
   char IP_Add[30];
   snprintf(IP_Add, sizeof(IP_Add), "IP Address : %s", WiFi.localIP().toString().c_str());
   start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, IP_Add, myWHITE);if (start_Scroll_Text == false) break;}
+  while(true) {run_Scrolling_Text(4, 35, IP_Add, myWHITE); delay(1); if (start_Scroll_Text == false) break;}
   delay(500);
 }
 //________________________________________________________________________________ 
