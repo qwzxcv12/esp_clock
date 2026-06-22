@@ -20,6 +20,7 @@
 #include "am-duong-lich.h"
 #include <TimeLib.h>
 #include <time.h>
+#include <esp_sntp.h>
 //----------------------------------------
 // Forward declarations
 void handleRoot();
@@ -119,7 +120,8 @@ int Text_Color_R = 255;
 int Text_Color_G = 255;
 int Text_Color_B = 255;
 
-bool has_synced_today = false;
+volatile bool ntp_sync_completed = false;
+volatile time_t synced_raw_time = 0;
 uint8_t current_brightness = 0; // Tracks actual display brightness to avoid redundant calls
 //----------------------------------------Variable declaration for your network credentials.
 const char* ssid = "Ze";  //--> Your wifi name.
@@ -196,6 +198,7 @@ void connecting_To_WiFi() {
   Serial.println("-------------WIFI mode");
   Serial.println("WIFI mode : STA");
   WiFi.mode(WIFI_STA);
+  WiFi.setAutoReconnect(true); //--> Enable auto reconnect to prevent permanent dropouts
   Serial.println("-------------");
   delay(1000);
   //---------------------------------------- 
@@ -208,11 +211,10 @@ void connecting_To_WiFi() {
   WiFi.begin(ssid, password);
   
   //:::::::::::::::::: The process of connecting ESP32 with WiFi Hotspot / WiFi Router.
-  // The process timeout of connecting ESP32 with WiFi Hotspot / WiFi Router is 20 seconds.
-  // If within 20 seconds the ESP32 has not been successfully connected to WiFi, the ESP32 will restart.
-  // I made this condition because on my ESP32, there are times when it seems like it can't connect to WiFi, so it needs to be restarted to be able to connect to WiFi.
+  // The process timeout of connecting ESP32 with WiFi Hotspot / WiFi Router is 35 seconds.
+  // If within 35 seconds the ESP32 has not been successfully connected to WiFi, the ESP32 will restart.
   
-  int connecting_process_timed_out = 20; //--> 20 = 20 seconds.
+  int connecting_process_timed_out = 35; //--> 35 = 35 seconds.
   connecting_process_timed_out = connecting_process_timed_out * 2;
   while (WiFi.status() != WL_CONNECTED) {
     Serial.print(".");
@@ -710,8 +712,25 @@ void drawColon(int16_t x, int16_t y, uint16_t colonColor) {
 
 
 
+//________________________________________________________________________________ timeSyncCallback()
+// Callback triggered by ESP32 native SNTP when background time synchronization completes.
+void timeSyncCallback(struct timeval *tv) {
+  synced_raw_time = tv->tv_sec;
+  ntp_sync_completed = true;
+}
+
 //________________________________________________________________________________ get_Time()
 void get_Time() {
+  // Safe thread sync: Update RTC from NTP in the main loop thread
+  if (ntp_sync_completed) {
+    time_t rawtime = synced_raw_time;
+    struct tm timeinfo;
+    localtime_r(&rawtime, &timeinfo);
+    rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
+    ntp_sync_completed = false;
+    Serial.println("RTC updated from background NTP sync.");
+  }
+
   DateTime now = rtc.now();
 
   minute_Val = now.minute();
@@ -725,20 +744,6 @@ void get_Time() {
   if (target_brightness != current_brightness) {
     current_brightness = target_brightness;
     display.setBrightness(current_brightness);
-  }
-
-  // Daily NTP Sync at 3 AM
-  if (now.hour() == 3 && !has_synced_today) {
-    if (WiFi.status() == WL_CONNECTED) {
-      configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov");
-      struct tm timeinfo;
-      if (getLocalTime(&timeinfo, 10000)) {
-        rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
-      }
-    }
-    has_synced_today = true;
-  } else if (now.hour() == 4) {
-    has_synced_today = false;
   }
 }
 //________________________________________________________________________________ 
@@ -853,10 +858,17 @@ void setup() {
   display.setCursor(0, 0);
   display.print("NTP...");
 
-  configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // UTC+7 for Vietnam
+  // Set the callback for background NTP syncs
+  sntp_set_time_sync_notification_cb(timeSyncCallback);
+  
+  // Wait a moment for network to stabilize before calling configTime
+  delay(1000);
+
+  // Set reliable NTP servers for Vietnam (UTC+7)
+  configTime(7 * 3600, 0, "time.google.com", "vn.pool.ntp.org", "pool.ntp.org");
   
   struct tm timeinfo;
-  if (getLocalTime(&timeinfo, 10000)) { // Wait up to 10 seconds for time sync
+  if (getLocalTime(&timeinfo, 5000)) { // Wait up to 5 seconds for time sync on boot
     rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
     display.setTextColor(myGREEN);
     display.setCursor(0, 9);
