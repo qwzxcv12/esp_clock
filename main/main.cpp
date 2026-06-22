@@ -824,9 +824,16 @@ void setup() {
   display.print("WiFi...");
   delay(500);
 
+  // IMPORTANT: Must disable display timer ISR during WiFi init
+  // WiFi driver uses critical sections that conflict with display ISR
+  display_update_enable(false);
+
   connecting_To_WiFi();
 
   prepare_and_start_The_Server();
+
+  // Re-enable display after WiFi is ready
+  display_update_enable(true);
 
   // Show WiFi connected + IP on both lines
   display.clearDisplay();
