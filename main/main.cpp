@@ -140,6 +140,16 @@ Preferences preferences;
 // Server on port 80.
 WebServer server(80);
 
+// FreeRTOS Task Handle for Web Server
+TaskHandle_t webServerTaskHandle;
+
+void webServerTask(void * pvParameters) {
+  for(;;) {
+    server.handleClient();
+    vTaskDelay(10 / portTICK_PERIOD_MS); // Yield 10ms to watchdog
+  }
+}
+
 
 
 
@@ -914,6 +924,13 @@ void get_Time() {
   snprintf(chr_t_Hour, sizeof(chr_t_Hour), "%02d", now.hour());
   snprintf(chr_t_Minute, sizeof(chr_t_Minute), "%02d", now.minute());
 
+  // Smart Auto-Brightness (Dimming at night 22:00 -> 06:00)
+  if (now.hour() >= 22 || now.hour() < 6) {
+    display.setBrightness(15); // Very dim at night
+  } else {
+    display.setBrightness(input_Brightness); // User configured brightness during the day
+  }
+
   // Daily NTP Sync at 3 AM
   if (now.hour() == 3 && !has_synced_today) {
     if (WiFi.status() == WL_CONNECTED) {
@@ -1070,6 +1087,17 @@ void setup() {
   }
   delay(500);
   //----------------------------------------
+
+  // Start FreeRTOS Web Server Task on Core 0
+  xTaskCreatePinnedToCore(
+    webServerTask,
+    "WebServerTask",
+    4096,
+    NULL,
+    1,
+    &webServerTaskHandle,
+    0
+  );
 }
 //________________________________________________________________________________ 
 
@@ -1082,8 +1110,6 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
-  // Handle client requests.
-  server.handleClient();
 
 
 
