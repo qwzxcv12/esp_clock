@@ -20,7 +20,9 @@
     #define EXTENDAPI       // Functions defined as 'extern' by default (implicit specifiers)
 #endif
 
+#ifndef PI
 #define PI 3.14159265358979323846
+#endif
 
 //the number of days since 1 January 4713 BC (Julian calendar)
 int jdFromDate(const int& dd, const int& mm, const int& yy);
