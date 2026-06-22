@@ -122,6 +122,7 @@ int Text_Color_B = 255;
 
 volatile bool ntp_sync_completed = false;
 volatile time_t synced_raw_time = 0;
+volatile bool web_time_sync_requested = false;
 uint8_t current_brightness = 0; // Tracks actual display brightness to avoid redundant calls
 //----------------------------------------Variable declaration for your network credentials.
 const char* ssid = "Ze";  //--> Your wifi name.
@@ -324,9 +325,8 @@ void handleSettings() {
       Serial.print("DateTime : ");
       Serial.println(TD);
 
-      Serial.println("Set Time and Date...");
-      rtc.adjust(DateTime(d_Year, d_Month, d_Day, t_Hour, t_Minute, t_Second));
-      Serial.println("Setting the Time and Date has been completed.");
+      Serial.println("Set Time and Date request received (deferred to main loop).");
+      web_time_sync_requested = true;
     }
 
     // Conditions for setting Display Mode.
@@ -729,6 +729,13 @@ void get_Time() {
     rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
     ntp_sync_completed = false;
     Serial.println("RTC updated from background NTP sync.");
+  }
+
+  // Safe thread sync: Update RTC from Web Page in the main loop thread
+  if (web_time_sync_requested) {
+    rtc.adjust(DateTime(d_Year, d_Month, d_Day, t_Hour, t_Minute, t_Second));
+    web_time_sync_requested = false;
+    Serial.println("RTC updated from Web Page settings request.");
   }
 
   DateTime now = rtc.now();
