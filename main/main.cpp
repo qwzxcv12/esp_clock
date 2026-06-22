@@ -144,6 +144,11 @@ WebServer server(80);
 // FreeRTOS Task Handle for Web Server
 TaskHandle_t webServerTaskHandle;
 
+// Thread-safe display flags (Web Server runs on Core 0, Display on Core 1)
+volatile bool request_clear_display = false;
+volatile bool request_reset_scroll = false;
+volatile byte request_scroll_order = 255; // 255 = no request
+
 void webServerTask(void * pvParameters) {
   for(;;) {
     server.handleClient();
@@ -346,9 +351,9 @@ void handleSettings() {
         text_Color = display.color565(Color_Text_R, Color_Text_G, Color_Text_B);
       }
 
-      display.clearDisplay();
-      reset_Scrolling_Text = true;
-      scrolling_text_Display_Order = 0;
+      request_clear_display = true;
+      request_reset_scroll = true;
+      request_scroll_order = 0;
       
       Serial.println("Set and save Display Mode is complete.");
     }
@@ -441,9 +446,9 @@ void handleSettings() {
         preferences.end();
       }
 
-      display.clearDisplay();
-      reset_Scrolling_Text = true;
-      scrolling_text_Display_Order = 0;
+      request_clear_display = true;
+      request_reset_scroll = true;
+      request_scroll_order = 0;
       day_and_date_Text_Color = display.color565(Color_Date_R, Color_Date_G, Color_Date_B);
       
       Serial.println("Set and save Date Color is complete.");
@@ -463,9 +468,9 @@ void handleSettings() {
       preferences.putString("input_ST", input_Scrolling_Text);
       preferences.end();
 
-      display.clearDisplay();
-      reset_Scrolling_Text = true;
-      scrolling_text_Display_Order = 1;
+      request_clear_display = true;
+      request_reset_scroll = true;
+      request_scroll_order = 1;
       
       Serial.println("Set and save Scrolling Text is complete.");
     }
@@ -499,9 +504,9 @@ void handleSettings() {
         preferences.end();
       }
 
-      display.clearDisplay();
-      reset_Scrolling_Text = true;
-      scrolling_text_Display_Order = 1;
+      request_clear_display = true;
+      request_reset_scroll = true;
+      request_scroll_order = 1;
       text_Color = display.color565(Color_Text_R, Color_Text_G, Color_Text_B);
       
       Serial.println("Set and save Text Color is complete.");
@@ -800,84 +805,62 @@ void setup() {
 
   // Display initialization.
   display.begin(8); //--> Value 8 for 1/8 row scan panel.
-  delay(100);
 
   // Enable Timer Interrupts.
   display_update_enable(true);
-  delay(100);
 
   display.clearDisplay();
-  delay(1000);
-
-  display.setBrightness(input_Brightness); //--> Range from 0 to 255.
-  delay(100);
-
-  display.fillScreen(myRED);
-  delay(1000);
-  display.fillScreen(myGREEN);
-  delay(1000);
-  display.fillScreen(myBLUE);
-  delay(1000);
-  display.fillScreen(myWHITE);
-  delay(1000);
-
-  display.clearDisplay();
-  delay(1000);
-
+  display.setBrightness(input_Brightness);
   display.setTextWrap(false);
   display.setTextSize(1);
   display.setRotation(0);
-  delay(100);
 
-  start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, "Connecting to WiFi.", myBLUE); delay(1); if (start_Scroll_Text == false) break;}
+  // Fast boot: show status on both lines simultaneously
+  display.setTextColor(myCYAN);
+  display.setCursor(0, 0);
+  display.print("BOOT...");
+  display.setTextColor(myYELLOW);
+  display.setCursor(0, 9);
+  display.print("WiFi...");
   delay(500);
-
-  start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, "Please Wait...", myRED); delay(1); if (start_Scroll_Text == false) break;}
-  delay(500);
-
-  // Disable Timer Interrupts.
-  display_update_enable(false);
-  delay(1000);
 
   connecting_To_WiFi();
-  delay(1000);
 
   prepare_and_start_The_Server();
-  delay(1000);
 
-  // Enable Timer Interrupts.
-  display_update_enable(true);
-  delay(1000);
-
-  start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, "Successfully connected to WiFi.", myGREEN); delay(1); if (start_Scroll_Text == false) break;}
-  delay(500);
-
-  char IP_Add[30];
-  snprintf(IP_Add, sizeof(IP_Add), "IP Address : %s", WiFi.localIP().toString().c_str());
-  start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, IP_Add, myWHITE); delay(1); if (start_Scroll_Text == false) break;}
-  delay(500);
+  // Show WiFi connected + IP on both lines
+  display.clearDisplay();
+  display.setTextColor(myGREEN);
+  display.setCursor(0, 0);
+  display.print("WiFi OK");
+  display.setTextColor(myWHITE);
+  display.setCursor(0, 9);
+  char ip_short[16];
+  snprintf(ip_short, sizeof(ip_short), "%s", WiFi.localIP().toString().c_str());
+  display.print(ip_short);
+  delay(1500);
 
   //----------------------------------------NTP Time Sync
-  start_Scroll_Text = true;
-  while(true) {run_Scrolling_Text(4, 35, "Syncing time via NTP...", myYELLOW); delay(1); if (start_Scroll_Text == false) break;}
+  display.clearDisplay();
+  display.setTextColor(myYELLOW);
+  display.setCursor(0, 0);
+  display.print("NTP...");
 
   configTime(7 * 3600, 0, "pool.ntp.org", "time.nist.gov"); // UTC+7 for Vietnam
   
   struct tm timeinfo;
   if (getLocalTime(&timeinfo, 10000)) { // Wait up to 10 seconds for time sync
     rtc.adjust(DateTime(timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday, timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec));
-    start_Scroll_Text = true;
-    while(true) {run_Scrolling_Text(4, 35, "NTP Sync Success!", myGREEN); delay(1); if (start_Scroll_Text == false) break;}
+    display.setTextColor(myGREEN);
+    display.setCursor(0, 9);
+    display.print("NTP OK!");
   } else {
-    start_Scroll_Text = true;
-    while(true) {run_Scrolling_Text(4, 35, "NTP Sync Failed!", myRED); delay(1); if (start_Scroll_Text == false) break;}
+    display.setTextColor(myRED);
+    display.setCursor(0, 9);
+    display.print("NTP ERR");
   }
-  delay(500);
-  //----------------------------------------
+  delay(1000);
+  display.clearDisplay();
 
   // Start FreeRTOS Web Server Task on Core 0
   xTaskCreatePinnedToCore(
@@ -904,6 +887,20 @@ void loop() {
 
 
 
+
+  // Process thread-safe display flags from Web Server (Core 0 -> Core 1)
+  if (request_clear_display) {
+    display.clearDisplay();
+    request_clear_display = false;
+  }
+  if (request_reset_scroll) {
+    reset_Scrolling_Text = true;
+    request_reset_scroll = false;
+  }
+  if (request_scroll_order != 255) {
+    scrolling_text_Display_Order = request_scroll_order;
+    request_scroll_order = 255;
+  }
 
   //----------------------------------------input_Display_Mode = 1.
   if (input_Display_Mode == 1) {
