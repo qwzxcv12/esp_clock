@@ -20,7 +20,7 @@ jobs:
           mkdir -p components
           
           # Clone components and generate CMakeLists
-          git clone --depth 1 -b release/v2.0.x https://github.com/espressif/arduino-esp32.git components/arduino
+          git clone --depth 1 -b release/v2.x https://github.com/espressif/arduino-esp32.git components/arduino
           
           git clone --depth 1 https://github.com/adafruit/Adafruit-GFX-Library.git components/Adafruit-GFX-Library
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Adafruit-GFX-Library/CMakeLists.txt
