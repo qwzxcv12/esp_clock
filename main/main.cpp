@@ -153,12 +153,13 @@ void IRAM_ATTR display_updater(){
 
 void display_update_enable(bool is_enable) {
   if (is_enable) {
-    timer = timerBegin(1000000); // 1MHz frequency
-    timerAttachInterrupt(timer, &display_updater);
-    timerAlarm(timer, 4000, true, 0); // 4000 ticks = 4ms
+    timer = timerBegin(0, 80, true);
+    timerAttachInterrupt(timer, &display_updater, true);
+    timerAlarmWrite(timer, 4000, true);
+    timerAlarmEnable(timer);
   } else {
     timerDetachInterrupt(timer);
-    timerEnd(timer);
+    timerAlarmDisable(timer);
   }
 }
 //________________________________________________________________________________ 
@@ -815,8 +816,7 @@ void get_All_Saved_Settings() {
 
 
 //________________________________________________________________________________ run_Scrolling_Text()
-// Subroutine for scrolling text.
-void run_Scrolling_Text(uint8_t speed, byte y_pos, const char* st_Text, uint16_t color) {
+void run_Scrolling_Text(uint8_t st_Y_Pos, byte st_Speed, const char* st_Text, uint16_t st_Color) {
   if (start_Scroll_Text == true && set_up_Scrolling_Text_Length == true) {
     if (strlen(st_Text) > 0) {
       text_Length_In_Pixel = getTextWidth(st_Text);
