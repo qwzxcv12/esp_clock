@@ -176,13 +176,17 @@ void IRAM_ATTR display_updater(){
 
 void display_update_enable(bool is_enable) {
   if (is_enable) {
-    timer = timerBegin(0, 80, true);
+    if (timer == NULL) {
+      timer = timerBegin(0, 80, true);
+    }
     timerAttachInterrupt(timer, &display_updater, true);
     timerAlarmWrite(timer, 4000, true);
     timerAlarmEnable(timer);
   } else {
-    timerDetachInterrupt(timer);
-    timerAlarmDisable(timer);
+    if (timer != NULL) {
+      timerDetachInterrupt(timer);
+      timerAlarmDisable(timer);
+    }
   }
 }
 //________________________________________________________________________________ 
@@ -342,9 +346,11 @@ void handleSettings() {
       // Check-before-write: Only write to Flash if value changed
       if (new_Display_Mode != input_Display_Mode) {
         input_Display_Mode = new_Display_Mode;
+        display_update_enable(false); // Disable display interrupt during flash write
         preferences.begin("mySettings", false);
         preferences.putInt("input_DM", input_Display_Mode);
         preferences.end();
+        display_update_enable(true); // Re-enable display interrupt
       }
 
       if (input_Display_Mode == 1) {
@@ -375,9 +381,11 @@ void handleSettings() {
       // Check-before-write: Only write to Flash if value changed
       if ((byte)temp_Bright != input_Brightness) {
         input_Brightness = temp_Bright;
+        display_update_enable(false);
         preferences.begin("mySettings", false);
         preferences.putInt("input_BRT", input_Brightness);
         preferences.end();
+        display_update_enable(true);
       }
 
       display.setBrightness(input_Brightness);
@@ -407,11 +415,13 @@ void handleSettings() {
         Color_Clock_R = new_R;
         Color_Clock_G = new_G;
         Color_Clock_B = new_B;
+        display_update_enable(false);
         preferences.begin("mySettings", false);
         preferences.putInt("CC_R", Color_Clock_R);
         preferences.putInt("CC_G", Color_Clock_G);
         preferences.putInt("CC_B", Color_Clock_B);
         preferences.end();
+        display_update_enable(true);
       }
 
       clock_Color = display.color565(Color_Clock_R, Color_Clock_G, Color_Clock_B);
@@ -441,11 +451,13 @@ void handleSettings() {
         Color_Date_R = new_R;
         Color_Date_G = new_G;
         Color_Date_B = new_B;
+        display_update_enable(false);
         preferences.begin("mySettings", false);
         preferences.putInt("DC_R", Color_Date_R);
         preferences.putInt("DC_G", Color_Date_G);
         preferences.putInt("DC_B", Color_Date_B);
         preferences.end();
+        display_update_enable(true);
       }
 
       request_clear_display = true;
@@ -466,9 +478,11 @@ void handleSettings() {
       Serial.print("Text : ");
       Serial.println(input_Scrolling_Text);
 
+      display_update_enable(false);
       preferences.begin("mySettings", false);
       preferences.putString("input_ST", input_Scrolling_Text);
       preferences.end();
+      display_update_enable(true);
 
       request_clear_display = true;
       request_reset_scroll = true;
@@ -499,11 +513,13 @@ void handleSettings() {
         Color_Text_R = new_R;
         Color_Text_G = new_G;
         Color_Text_B = new_B;
+        display_update_enable(false);
         preferences.begin("mySettings", false);
         preferences.putInt("TC_R", Color_Text_R);
         preferences.putInt("TC_G", Color_Text_G);
         preferences.putInt("TC_B", Color_Text_B);
         preferences.end();
+        display_update_enable(true);
       }
 
       request_clear_display = true;
@@ -527,9 +543,11 @@ void handleSettings() {
       // Check-before-write
       if (new_Speed != input_Scrolling_Speed) {
         input_Scrolling_Speed = new_Speed;
+        display_update_enable(false);
         preferences.begin("mySettings", false);
         preferences.putInt("input_SS", input_Scrolling_Speed);
         preferences.end();
+        display_update_enable(true);
       }
       
       Serial.println("Set and save Scrolling Speed is complete.");
@@ -847,17 +865,25 @@ void setup() {
   // Re-enable display after WiFi is ready
   display_update_enable(true);
 
-  // Show WiFi connected + IP on both lines
+  // Scroll IP Address on startup to display it fully
   display.clearDisplay();
   display.setTextColor(myGREEN);
   display.setCursor(0, 0);
   display.print("WiFi OK");
-  display.setTextColor(myWHITE);
-  display.setCursor(0, 9);
-  char ip_short[16];
-  snprintf(ip_short, sizeof(ip_short), "%s", WiFi.localIP().toString().c_str());
-  display.print(ip_short);
-  delay(1500);
+  
+  String ip_str = WiFi.localIP().toString();
+  const char* ip_text = ip_str.c_str();
+  int text_w = getTextWidth(ip_text);
+  
+  // Scroll IP on the second line (y=8)
+  for (int x = matrix_width; x >= -text_w; x--) {
+    display.fillRect(0, 8, matrix_width, 8, myBLACK);
+    display.setTextColor(myWHITE);
+    display.setCursor(x, 8);
+    display.print(ip_text);
+    delay(40); // 40ms scroll delay
+  }
+  delay(500);
 
   //----------------------------------------NTP Time Sync
   display.clearDisplay();
