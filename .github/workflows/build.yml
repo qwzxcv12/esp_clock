@@ -24,22 +24,22 @@ jobs:
           
           git clone --depth 1 https://github.com/adafruit/Adafruit-GFX-Library.git components/Adafruit-GFX-Library
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Adafruit-GFX-Library/CMakeLists.txt
-          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES Adafruit_BusIO arduino)' >> components/Adafruit-GFX-Library/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS . REQUIRES Adafruit_BusIO arduino)' >> components/Adafruit-GFX-Library/CMakeLists.txt
 
           git clone --depth 1 https://github.com/adafruit/Adafruit_BusIO.git components/Adafruit_BusIO
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Adafruit_BusIO/CMakeLists.txt
-          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES arduino)' >> components/Adafruit_BusIO/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS . REQUIRES arduino)' >> components/Adafruit_BusIO/CMakeLists.txt
 
           git clone --depth 1 https://github.com/2dom/PxMatrix.git components/PxMatrix
-          echo 'idf_component_register(INCLUDE_DIRS "." REQUIRES Adafruit-GFX-Library arduino)' > components/PxMatrix/CMakeLists.txt
+          echo 'idf_component_register(INCLUDE_DIRS . REQUIRES Adafruit-GFX-Library arduino)' > components/PxMatrix/CMakeLists.txt
 
           git clone --depth 1 https://github.com/adafruit/RTClib.git components/RTClib
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/RTClib/CMakeLists.txt
-          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." "src" REQUIRES Adafruit_BusIO arduino)' >> components/RTClib/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS . src REQUIRES Adafruit_BusIO arduino)' >> components/RTClib/CMakeLists.txt
 
           git clone --depth 1 https://github.com/PaulStoffregen/Time.git components/Time
           echo 'file(GLOB_RECURSE srcs "*.cpp" "*.c")' > components/Time/CMakeLists.txt
-          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS "." REQUIRES arduino)' >> components/Time/CMakeLists.txt
+          echo 'idf_component_register(SRCS ${srcs} INCLUDE_DIRS . REQUIRES arduino)' >> components/Time/CMakeLists.txt
 
       - name: Build Firmware
         shell: bash
